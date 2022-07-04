@@ -43,8 +43,10 @@ class PlDataTree extends PlElement {
             let path = normalizePath(mutation.path);
             path[0] = 'in';
             path[1] = this.in.indexOf(this.out[path[1]]);
-            if (path[1] >=0 )
-                this.dispatchEvent(new CustomEvent('data-changed', { detail: { ...mutation, path: path.join('.') } }));
+            if (path[1] >=0 ) {
+                let m = /**@type DataMutation*/ {...mutation, path};
+                this.notifyChange(m);
+            }
         }
     }
     buildTree(key, pkey, hasChild) {
@@ -108,7 +110,7 @@ class PlDataTree extends PlElement {
             if (m.addedCount > 0) {
                 for (let i = m.index; i < (m.index + m.addedCount); i++) {
                     const item = this.in[i];
-                    // проверяем, возможно для добаввленного элемента уже есть дочерние
+                    // проверяем, возможно для добавленного элемента уже есть дочерние
                     item._haschildren = this.hasChildField && this.partialData ? item[this.hasChildField] ?? true : this.in.some(i => i[this.pkeyField] === item[this.keyField]);
                     let pIndex;
                     let parentItem;
@@ -120,7 +122,7 @@ class PlDataTree extends PlElement {
                         };
                     } else {
                         // Ищем родителя для вставки
-                        pIndex = this.out.findIndex(vi => vi[this.keyField] == item[this.pkeyField]);
+                        pIndex = this.out.findIndex(vi => vi[this.keyField] === item[this.pkeyField]);
                         if (pIndex >= 0) {
                             parentItem = this.out[pIndex];
                             if (!parentItem._haschildren) this.set(['out', pIndex, '_haschildren'], true);
