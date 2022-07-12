@@ -1,5 +1,5 @@
 import {PlElement} from "polylib";
-import {normalizePath} from "polylib/common";
+import {normalizePath, stringPath} from "polylib/common";
 
 class PlDataTree extends PlElement {
     static properties = {
@@ -14,21 +14,22 @@ class PlDataTree extends PlElement {
         this._inObserver(this.in);
     }
     _inObserver(val, _old, mutation) {
-        if (!mutation || (mutation.path === 'in' && mutation.action === 'upd')) {
+        let path = mutation ? stringPath(mutation.path) : null;
+        if (!mutation || (path === 'in' && mutation.action === 'upd')) {
             if (this.bypass) {
                 this.set('out', val);
             } else if (this.keyField && this.pkeyField){
                 this.set('out', this.buildTree(this.keyField, this.pkeyField, this.hasChildField));
             }
         } else {
-            if (mutation.path === 'in.load' && this.in !== this.out) {
+            if (path === 'in.load' && this.in !== this.out) {
                 this.out.load = this.in.load
             }
-            if(mutation.path === 'in.sorts')  return;
+            if(path === 'in.sorts')  return;
             //TODO: fix mutation translate for tree
             if (this.bypass) {
                 //TODO: path can be array
-                let translatedPath = mutation.path.replace('in', 'out');
+                let translatedPath = path.replace('in', 'out');
                 // translate mutation with resenting watermark,
                 // we need to new mutation cycle for apply nested change
                 mutation = {...mutation, path: translatedPath};
@@ -39,7 +40,7 @@ class PlDataTree extends PlElement {
         }
     }
     _outObserver(val, old, mutation) {
-        if (mutation && mutation.path !== 'out') {
+        if (mutation && stringPath(mutation.path) !== 'out') {
             let path = normalizePath(mutation.path);
             path[0] = 'in';
             path[1] = this.in.indexOf(this.out[path[1]]);
