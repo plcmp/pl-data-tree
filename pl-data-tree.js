@@ -85,13 +85,13 @@ class PlDataTree extends PlElement {
         }
         /*
         action: "splice"
-        added: (411) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, …]
+        added: (411) [ …]
         addedCount: 411
         deleted: ControlledArray [filters: Array(0), sorts: Array(0), control: {…}]
         deletedCount: 0
         index: 0
         path: "data"
-        target: ControlledArray(411) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, …]
+        target: ControlledArray(411) [ …]
         wmh: 99
          */
         if (m.path === 'in' && m.action === 'splice') {
@@ -104,13 +104,17 @@ class PlDataTree extends PlElement {
             }
             // add
             // Обновляем индексы
-            this.in.forEach((e, i) => {
-                e._index = i;
-            });
+            this.in.forEach((e, i) => { e._index = i; });
             // Вставляем в нужные места добавленные элементы
             if (m.addedCount > 0) {
-                for (let i = m.index; i < (m.index + m.addedCount); i++) {
-                    const item = this.in[i];
+                // Sort added element to ensure root is before leafs
+                for(let i=0; i<m.added.length; i++){
+                    let parent = m.added.findIndex( f=> f[this.keyField] === m.added[i][this.pkeyField]);
+                    if (m.added[i][this.pkeyField] &&  i < parent) {
+                        m.added.splice(i, 0, ...m.added.splice(parent, 1));
+                    }
+                }
+                m.added.forEach( item => {
                     // проверяем, возможно для добавленного элемента уже есть дочерние
                     item._haschildren = this.hasChildField && this.partialData ? item[this.hasChildField] ?? true : this.in.some(i => i[this.pkeyField] === item[this.keyField]);
                     let pIndex;
@@ -158,7 +162,7 @@ class PlDataTree extends PlElement {
                             this.splice('out', insertIndex, 0, item);
                         }
                     }
-                }
+                });
             }
         } else {
             // translate mutation from 'in' to 'out'
