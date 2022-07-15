@@ -1,5 +1,6 @@
 import {PlElement} from "polylib";
 import {normalizePath, stringPath} from "polylib/common";
+import {PlaceHolder} from "@plcmp/utils";
 
 class PlDataTree extends PlElement {
     static properties = {
@@ -165,14 +166,63 @@ class PlDataTree extends PlElement {
                 });
             }
         } else {
-            // translate mutation from 'in' to 'out'
+            // process open/close for nodes
             let path = normalizePath(m.path);
+            let item = this.in[path[1]];
+            if ( path[0] === 'in' && path[2] === '_opened') {
+                // call method delayed to let current mutation end
+                // before new splices appear
+                if (m.value) {
+                    setTimeout( ()=>this.showChildren(item),0);
+                } else {
+                    setTimeout( ()=>this.hideChildren(item),0);
+                }
+            }
+            // translate mutation from 'in' to 'out'
             path[0] = 'out';
-            path[1] = this.out.indexOf(this.in[path[1]]);
-            if (path[1] >=0) {
+            path[1] = this.out.indexOf(item);
+            if (path[1] >= 0) {
                 this.notifyChange({...m, path: path.join('.')});
             }
         }
+    }
+
+    showChildren(item) {
+        let it = item;
+        const pendingShow = [];
+        const outIndex = this.out.indexOf(it);
+        const addData = this.in.filter( i => {
+            if (i[this.pkeyField] === it[this.keyField]) {
+                i._level = it._level + 1;
+                if (i._opened) pendingShow.push(i);
+                i._pitem = it;
+                return true;
+            }
+        });
+
+        if (addData.length > 0) {
+            this.splice('out', outIndex + 1, 0, ...addData);
+            it._childrenCount = addData.length;
+            while (it._pitem) {
+                it._pitem._childrenCount += item._childrenCount;
+                it = it._pitem;
+            }
+            pendingShow.forEach(i => this.showChildren(i));
+        } else if (this.partialData){
+            // if no rows found with partial load for tree, add lazy load placeholder
+            this.push('data', new PlaceHolder({ [this.pkeyField] :it[this.keyField], hid: it[this.keyField], _haschildren: false}));
+        }
+    }
+
+    hideChildren(item) {
+        let it = item;
+        const outIndex = this.out.indexOf(it);
+        this.splice('out', outIndex + 1, it._childrenCount);
+        while (it._pitem) {
+            it._pitem._childrenCount -= it._childrenCount;
+            it = it._pitem;
+        }
+        item._childrenCount = null;
     }
 }
 
