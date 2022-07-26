@@ -96,6 +96,7 @@ class PlDataTree extends PlElement {
         wmh: 99
          */
         if (m.path === 'in' && m.action === 'splice') {
+            console.log(m)
             if (!this.keyField || !this.pkeyField) return;
             // delete
             if (m.deletedCount > 0) {
@@ -111,7 +112,7 @@ class PlDataTree extends PlElement {
                 // Sort added element to ensure root is before leafs
                 for(let i=0; i<m.added.length; i++){
                     let parent = m.added.findIndex( f=> f[this.keyField] === m.added[i][this.pkeyField]);
-                    if (m.added[i][this.pkeyField] &&  i < parent) {
+                    if (m.added[i][this.pkeyField] != null &&  i < parent) {
                         m.added.splice(i, 0, ...m.added.splice(parent, 1));
                     }
                 }
@@ -121,7 +122,7 @@ class PlDataTree extends PlElement {
                     let pIndex;
                     let parentItem;
                     // Если вставляемая запись не имеет ссылки на родителя, добавляем к корням
-                    if (!item[this.pkeyField]) {
+                    if (item[this.pkeyField] == null) {
                         pIndex = -1;
                         parentItem = {
                             code: null, _level: -1, _opened: true, [this.keyField]: item[this.pkeyField]
