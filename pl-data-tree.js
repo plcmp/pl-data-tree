@@ -96,7 +96,6 @@ class PlDataTree extends PlElement {
         wmh: 99
          */
         if (m.path === 'in' && m.action === 'splice') {
-            console.log(m)
             if (!this.keyField || !this.pkeyField) return;
             // delete
             if (m.deletedCount > 0) {
