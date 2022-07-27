@@ -53,19 +53,30 @@ class PlDataTree extends PlElement {
     }
     buildTree(key, pkey, hasChild) {
         const pKeys = new Set();
+        const openedSet = new Map();
+
+        let arr = [...this.in];
+        this.sortTreeByParents(arr);
         if (!this.partialData) {
-            this.in.forEach(e => { pKeys.add(e[pkey]); });
+            arr.forEach(e => { pKeys.add(e[pkey]); });
         }
-        let vData = this.in.filter((i, c) => {
+        let vData = arr.filter((i, c) => {
             i._index = c;
             i._childrenCount = null;
             i._haschildren = hasChild && this.partialData ? i[hasChild] ?? true : pKeys.has(i[key]);
+            if (i._opened) openedSet.set(i[key],i);
             if (i[pkey] == null) {
                 i._level = 0;
                 return true;
+            } else {
+                let parent = openedSet.get(i[pkey]);
+                if (parent) {
+                    i._level = parent._level + 1;
+                    return true
+                }
             }
         });
-        vData.load = this.in.load
+        vData.load = arr.load
         return vData;
     }
 
@@ -109,12 +120,7 @@ class PlDataTree extends PlElement {
             // Вставляем в нужные места добавленные элементы
             if (m.addedCount > 0) {
                 // Sort added element to ensure root is before leafs
-                for(let i=0; i<m.added.length; i++){
-                    let parent = m.added.findIndex( f=> f[this.keyField] === m.added[i][this.pkeyField]);
-                    if (m.added[i][this.pkeyField] != null &&  i < parent) {
-                        m.added.splice(i, 0, ...m.added.splice(parent, 1));
-                    }
-                }
+                this.sortTreeByParents(m.added);
                 m.added.forEach( item => {
                     // проверяем, возможно для добавленного элемента уже есть дочерние
                     item._haschildren = this.hasChildField && this.partialData ? item[this.hasChildField] ?? true : this.in.some(i => i[this.pkeyField] === item[this.keyField]);
@@ -183,6 +189,15 @@ class PlDataTree extends PlElement {
             path[1] = this.out.indexOf(item);
             if (path[1] >= 0) {
                 this.notifyChange({...m, path: path.join('.')});
+            }
+        }
+    }
+
+    sortTreeByParents(arr) {
+        for (let i = 0; i < arr.length; i++) {
+            let parent = arr.findIndex(f => f[this.keyField] === arr[i][this.pkeyField]);
+            if (arr[i][this.pkeyField] != null && i < parent) {
+                arr.splice(i, 0, ...arr.splice(parent, 1));
             }
         }
     }
