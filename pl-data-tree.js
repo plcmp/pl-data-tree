@@ -72,6 +72,8 @@ class PlDataTree extends PlElement {
                 let parent = openedSet.get(i[pkey]);
                 if (parent) {
                     i._level = parent._level + 1;
+                    i._pitem = parent;
+                    parent._childrenCount++;
                     return true
                 }
             }
