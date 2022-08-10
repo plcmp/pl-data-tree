@@ -57,13 +57,13 @@ class PlDataTree extends PlElement {
 
         let arr = [...this.in];
         this.sortTreeByParents(arr);
-        if (!this.partialData) {
+        if (!this.in?.control?.partialData) {
             arr.forEach(e => { pKeys.add(e[pkey]); });
         }
         let vData = arr.filter((i, c) => {
             i._index = c;
             i._childrenCount = null;
-            i._haschildren = hasChild && this.partialData ? i[hasChild] ?? true : pKeys.has(i[key]);
+            i._haschildren = hasChild && this.in?.control?.partialData ? i[hasChild] ?? true : pKeys.has(i[key]);
             if (i._opened) openedSet.set(i[key],i);
             if (i[pkey] == null) {
                 i._level = 0;
@@ -78,7 +78,8 @@ class PlDataTree extends PlElement {
                 }
             }
         });
-        vData.load = arr.load
+        vData.load = this.in.load;
+
         return vData;
     }
 
@@ -115,6 +116,18 @@ class PlDataTree extends PlElement {
                 let di = m.deleted.map(i => this.out.indexOf(i)).filter(i => i >= 0);
                 let delRanges = indexesToRanges(di);
                 delRanges.forEach(rr => this.splice('out', rr.start, rr.end - rr.start + 1));
+                m.deleted.forEach(item => {
+                    let parentItem = item._pitem;
+                    if(parentItem) {
+                        parentItem._childrenCount = parentItem._childrenCount > 0 ? parentItem._childrenCount - 1 : 0;
+                        let it = parentItem;
+                        while (it._pitem) {
+                            it._pitem._childrenCount = it._pitem._childrenCount > 0 ? it._pitem._childrenCount - 1 : 0;
+                            it._pitem._childrenCount -= 1;
+                            it = it._pitem;
+                        }
+                    }
+                });
             }
             // add
             // Обновляем индексы
@@ -125,7 +138,7 @@ class PlDataTree extends PlElement {
                 this.sortTreeByParents(m.added);
                 m.added.forEach( item => {
                     // проверяем, возможно для добавленного элемента уже есть дочерние
-                    item._haschildren = this.hasChildField && this.partialData ? item[this.hasChildField] ?? true : this.in.some(i => i[this.pkeyField] === item[this.keyField]);
+                    item._haschildren = this.hasChildField && this.in?.control?.partialData ? item[this.hasChildField] ?? true : this.in.some(i => i[this.pkeyField] === item[this.keyField]);
                     let pIndex;
                     let parentItem;
                     // Если вставляемая запись не имеет ссылки на родителя, добавляем к корням
@@ -225,9 +238,9 @@ class PlDataTree extends PlElement {
                 it = it._pitem;
             }
             pendingShow.forEach(i => this.showChildren(i));
-        } else if (this.partialData){
+        } else if (this.in?.control?.partialData){
             // if no rows found with partial load for tree, add lazy load placeholder
-            this.push('data', new PlaceHolder({ [this.pkeyField] :it[this.keyField], hid: it[this.keyField], _haschildren: false}));
+            this.push('in', new PlaceHolder({ [this.pkeyField] :it[this.keyField], hid: it[this.keyField], _haschildren: false}));
         }
     }
 
