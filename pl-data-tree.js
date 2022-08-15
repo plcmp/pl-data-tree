@@ -123,7 +123,6 @@ class PlDataTree extends PlElement {
                         let it = parentItem;
                         while (it._pitem) {
                             it._pitem._childrenCount = it._pitem._childrenCount > 0 ? it._pitem._childrenCount - 1 : 0;
-                            it._pitem._childrenCount -= 1;
                             it = it._pitem;
                         }
                     }
@@ -213,6 +212,7 @@ class PlDataTree extends PlElement {
             let parent = arr.findIndex(f => f[this.keyField] === arr[i][this.pkeyField]);
             if (arr[i][this.pkeyField] != null && i < parent) {
                 arr.splice(i, 0, ...arr.splice(parent, 1));
+                i--;
             }
         }
     }
