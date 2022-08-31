@@ -70,12 +70,13 @@ class PlDataTree extends PlElement {
                 return true;
             } else {
                 let parent = openedSet.get(i[pkey]);
-                if (parent) {
+                while(parent) {
                     i._level = parent._level + 1;
                     i._pitem = parent;
                     parent._childrenCount++;
-                    return true
+                    parent = openedSet.get(i._pitem[pkey]);
                 }
+                return true
             }
         });
         vData.load = this.in.load;
