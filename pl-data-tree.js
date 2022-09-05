@@ -224,6 +224,7 @@ class PlDataTree extends PlElement {
         let it = item;
         const pendingShow = [];
         const outIndex = this.out.indexOf(it);
+        if (outIndex < 0) return;
         const addData = this.in.filter( i => {
             if (i[this.pkeyField] === it[this.keyField] && !this.out.includes(i)) {
                 i._level = it._level + 1;
