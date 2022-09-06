@@ -65,7 +65,7 @@ class PlDataTree extends PlElement {
             i._childrenCount = null;
             i._haschildren = hasChild && this.in?.control?.partialData ? i[hasChild] ?? true : pKeys.has(i[key]);
             if (i._opened) openedSet.set(i[key],i);
-            if (i[pkey] == null) {
+            if (i[pkey] == null || !arr.some( a => a[key] === i[pkey])) {
                 i._level = 0;
                 return true;
             } else {
@@ -138,6 +138,7 @@ class PlDataTree extends PlElement {
             if (m.addedCount > 0) {
                 // Sort added element to ensure root is before leafs
                 this.sortTreeByParents(m.added);
+                let rootFakeItem = { code: null, _level: -1, _opened: true, [this.keyField]: null };
                 m.added.forEach( item => {
                     // проверяем, возможно для добавленного элемента уже есть дочерние
                     item._haschildren = this.hasChildField && this.in?.control?.partialData ? item[this.hasChildField] ?? true : this.in.some(i => i[this.pkeyField] === item[this.keyField]);
@@ -146,19 +147,20 @@ class PlDataTree extends PlElement {
                     // Если вставляемая запись не имеет ссылки на родителя, добавляем к корням
                     if (item[this.pkeyField] == null) {
                         pIndex = -1;
-                        parentItem = {
-                            code: null, _level: -1, _opened: true, [this.keyField]: item[this.pkeyField]
-                        };
+                        parentItem = rootFakeItem;
                     } else {
                         // Ищем родителя для вставки
                         pIndex = this.out.findIndex(vi => vi[this.keyField] === item[this.pkeyField]);
                         if (pIndex >= 0) {
                             parentItem = this.out[pIndex];
                             if (!parentItem._haschildren) this.set(['out', pIndex, '_haschildren'], true);
+                        } else {
+                            pIndex = -1;
+                            parentItem = rootFakeItem;
                         }
                     }
                     // Если родитель нашелся и он раскрыт, ищем куда в нем вставлять
-                    if (pIndex >= 0 || !item[this.pkeyField]) {
+                    if (pIndex >= 0 || parentItem === rootFakeItem) {
                         if (parentItem._opened) {
                             // Ищем потомка с индексом больше чем у того что нужно вставить,
                             // либо до конца текущего узла (если добавлять в конец)
