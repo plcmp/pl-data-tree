@@ -154,7 +154,7 @@ class PlDataTree extends PlElement {
                         if (pIndex >= 0) {
                             parentItem = this.out[pIndex];
                             if (!parentItem._haschildren) this.set(['out', pIndex, '_haschildren'], true);
-                        } else {
+                        } else if (!this.in.some(i => i[this.keyField] === item[this.pkeyField])) {
                             pIndex = -1;
                             parentItem = rootFakeItem;
                         }
