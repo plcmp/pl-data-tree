@@ -1,6 +1,6 @@
 {
   "name": "@plcmp/pl-data-tree",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "main": "pl-data-tree.js",
   "author": {
     "name": "Dmitry Boikov",
