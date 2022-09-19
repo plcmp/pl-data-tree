@@ -2,6 +2,10 @@ import {PlElement} from "polylib";
 import {normalizePath, stringPath} from "polylib/common";
 import {PlaceHolder} from "@plcmp/utils";
 
+/**
+ * @property {Array} in - input array
+ * @property {Array} out - flatted tree representation
+ * */
 class PlDataTree extends PlElement {
     static properties = {
         in: { type: Array, observer: '_inObserver' },
@@ -20,7 +24,10 @@ class PlDataTree extends PlElement {
             if (this.bypass) {
                 this.set('out', val);
             } else if (this.keyField && this.pkeyField){
-                this.set('out', this.buildTree(this.keyField, this.pkeyField, this.hasChildField));
+                this.set('out', []);
+                this.in.forEach( i => i._childrenCount = 0);
+                this.addTreePart(this.in);
+                //this.set('out', this.buildTree(this.keyField, this.pkeyField, this.hasChildField));
             }
         } else {
             if (path === 'in.load' && this.in !== this.out) {
@@ -52,6 +59,7 @@ class PlDataTree extends PlElement {
         }
     }
     buildTree(key, pkey, hasChild) {
+        console.log('build')
         const pKeys = new Set();
         const openedSet = new Map();
 
@@ -138,57 +146,7 @@ class PlDataTree extends PlElement {
             if (m.addedCount > 0) {
                 // Sort added element to ensure root is before leafs
                 this.sortTreeByParents(m.added);
-                let rootFakeItem = { code: null, _level: -1, _opened: true, [this.keyField]: null };
-                m.added.forEach( item => {
-                    // проверяем, возможно для добавленного элемента уже есть дочерние
-                    item._haschildren = this.hasChildField && this.in?.control?.partialData ? item[this.hasChildField] ?? true : this.in.some(i => i[this.pkeyField] === item[this.keyField]);
-                    let pIndex;
-                    let parentItem;
-                    // Если вставляемая запись не имеет ссылки на родителя, добавляем к корням
-                    if (item[this.pkeyField] == null) {
-                        pIndex = -1;
-                        parentItem = rootFakeItem;
-                    } else {
-                        // Ищем родителя для вставки
-                        pIndex = this.out.findIndex(vi => vi[this.keyField] === item[this.pkeyField]);
-                        if (pIndex >= 0) {
-                            parentItem = this.out[pIndex];
-                            if (!parentItem._haschildren) this.set(['out', pIndex, '_haschildren'], true);
-                        } else if (!this.in.some(i => i[this.keyField] === item[this.pkeyField])) {
-                            pIndex = -1;
-                            parentItem = rootFakeItem;
-                        }
-                    }
-                    // Если родитель нашелся и он раскрыт, ищем куда в нем вставлять
-                    if (pIndex >= 0 || parentItem === rootFakeItem) {
-                        if (parentItem._opened) {
-                            // Ищем потомка с индексом больше чем у того что нужно вставить,
-                            // либо до конца текущего узла (если добавлять в конец)
-                            // и вставляем элемент в найденную позицию
-
-                            item._level = parentItem._level + 1;
-                            // item.__haschildren = this.hasChildField ? item[this.hasChildField] : false;
-                            item._pitem = parentItem;
-                            ////if (this.dataMode == 'tree' && item.__haschildren) item.__needLoad = true;
-                            let insertIndex = pIndex + 1;
-                            while (this.out.length > insertIndex && this.out[insertIndex]._level > parentItem._level) {
-                                if (this.out[insertIndex][this.pkeyField] === parentItem[this.keyField] && this.out[insertIndex]._index > item._index) {
-                                    // нашли потомка с большим индексом
-                                    break;
-                                }
-                                insertIndex++;
-                            }
-
-                            parentItem._childrenCount = (parentItem._childrenCount || 0) + 1;
-                            let it = parentItem;
-                            while (it._pitem) {
-                                it._pitem._childrenCount += 1;
-                                it = it._pitem;
-                            }
-                            this.splice('out', insertIndex, 0, item);
-                        }
-                    }
-                });
+                this.addTreePart(m.added);
             }
         } else {
             // process open/close for nodes
@@ -210,6 +168,60 @@ class PlDataTree extends PlElement {
                 this.notifyChange({...m, path: path.join('.')});
             }
         }
+    }
+
+    addTreePart(m) {
+        let rootFakeItem = {code: null, _level: -1, _opened: true, [this.keyField]: null};
+        m.forEach(item => {
+            // проверяем, возможно для добавленного элемента уже есть дочерние
+            item._haschildren = this.hasChildField && this.in?.control?.partialData ? item[this.hasChildField] ?? true : this.in.some(i => i[this.pkeyField] === item[this.keyField]);
+            let pIndex;
+            let parentItem;
+            // Если вставляемая запись не имеет ссылки на родителя, добавляем к корням
+            if (item[this.pkeyField] == null) {
+                pIndex = -1;
+                parentItem = rootFakeItem;
+            } else {
+                // Ищем родителя для вставки
+                pIndex = this.out.findIndex(vi => vi[this.keyField] === item[this.pkeyField]);
+                if (pIndex >= 0) {
+                    parentItem = this.out[pIndex];
+                    if (!parentItem._haschildren) this.set(['out', pIndex, '_haschildren'], true);
+                } else if (!this.in.some(i => i[this.keyField] === item[this.pkeyField])) {
+                    pIndex = -1;
+                    parentItem = rootFakeItem;
+                }
+            }
+            // Если родитель нашелся и он раскрыт, ищем куда в нем вставлять
+            if (pIndex >= 0 || parentItem === rootFakeItem) {
+                if (parentItem._opened) {
+                    // Ищем потомка с индексом больше чем у того что нужно вставить,
+                    // либо до конца текущего узла (если добавлять в конец)
+                    // и вставляем элемент в найденную позицию
+
+                    item._level = parentItem._level + 1;
+                    // item.__haschildren = this.hasChildField ? item[this.hasChildField] : false;
+                    item._pitem = parentItem;
+                    ////if (this.dataMode == 'tree' && item.__haschildren) item.__needLoad = true;
+                    let insertIndex = pIndex + 1;
+                    while (this.out.length > insertIndex && this.out[insertIndex]._level > parentItem._level) {
+                        if (this.out[insertIndex][this.pkeyField] === parentItem[this.keyField] && this.out[insertIndex]._index > item._index) {
+                            // нашли потомка с большим индексом
+                            break;
+                        }
+                        insertIndex++;
+                    }
+
+                    parentItem._childrenCount = (parentItem._childrenCount || 0) + 1;
+                    let it = parentItem;
+                    while (it._pitem) {
+                        it._pitem._childrenCount += 1;
+                        it = it._pitem;
+                    }
+                    this.splice('out', insertIndex, 0, item);
+                }
+            }
+        });
     }
 
     sortTreeByParents(arr) {
