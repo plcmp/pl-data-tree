@@ -26,8 +26,9 @@ class PlDataTree extends PlElement {
             } else if (this.keyField && this.pkeyField){
                 this.set('out', []);
                 this.in.forEach( i => i._childrenCount = 0);
-                this.addTreePart(this.in);
-                //this.set('out', this.buildTree(this.keyField, this.pkeyField, this.hasChildField));
+                let arr = [...this.in];
+                this.sortTreeByParents(arr);
+                this.addTreePart(arr);
             }
         } else {
             if (path === 'in.load' && this.in !== this.out) {
@@ -58,42 +59,6 @@ class PlDataTree extends PlElement {
             }
         }
     }
-    buildTree(key, pkey, hasChild) {
-        console.log('build')
-        const pKeys = new Set();
-        const openedSet = new Map();
-
-        let arr = [...this.in];
-        this.sortTreeByParents(arr);
-        if (!this.in?.control?.partialData) {
-            arr.forEach(e => { pKeys.add(e[pkey]); });
-        }
-        let vData = arr.filter((i, c) => {
-            i._index = c;
-            i._childrenCount = null;
-            i._haschildren = hasChild && this.in?.control?.partialData ? i[hasChild] ?? true : pKeys.has(i[key]);
-            if (i._opened) openedSet.set(i[key],i);
-            if (i[pkey] == null || !arr.some( a => a[key] === i[pkey])) {
-                i._level = 0;
-                return true;
-            } else {
-                let parent = openedSet.get(i[pkey]);
-                if (parent) {
-                    while(parent) {
-                        i._level = parent._level + 1;
-                        i._pitem = parent;
-                        parent._childrenCount++;
-                        parent = openedSet.get(i._pitem[pkey]);
-                    }
-                    return true
-                }
-            }
-        });
-        vData.load = this.in.load;
-
-        return vData;
-    }
-
     /**
      * Apply in splice mutation to tree in virtual data
      * @param {DataMutation} m
