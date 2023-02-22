@@ -31,7 +31,7 @@ class PlDataTree extends PlElement {
                 this.addTreePart(arr);
             }
         } else {
-            if (path === 'in.load' && this.in !== this.out) {
+            if (path === 'in' && this.in !== this.out) {
                 this.out.load = this.in.load
             }
             if(path === 'in.sorts')  return;
