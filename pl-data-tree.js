@@ -1,6 +1,6 @@
-import {PlElement} from "polylib";
-import {normalizePath, stringPath} from "polylib/common";
-import {PlaceHolder} from "@plcmp/utils";
+import { PlElement } from "polylib";
+import { normalizePath, stringPath } from "polylib/common";
+import { PlaceHolder } from "@plcmp/utils";
 
 /**
  * @property {Array} in - input array
@@ -13,7 +13,7 @@ class PlDataTree extends PlElement {
         keyField: { type: String, observer: '_paramsChange' },
         pkeyField: { type: String, observer: '_paramsChange' },
         hasChildField: { type: String, observer: '_paramsChange' },
-        bypass: { type: Boolean, value: false, String, observer: '_paramsChange'  }
+        bypass: { type: Boolean, value: false, String, observer: '_paramsChange' }
     }
     _paramsChange() {
         this._inObserver(this.in);
@@ -23,9 +23,9 @@ class PlDataTree extends PlElement {
         if (!mutation || (path === 'in' && mutation.action === 'upd')) {
             if (this.bypass) {
                 this.set('out', val);
-            } else if (this.keyField && this.pkeyField){
+            } else if (this.keyField && this.pkeyField) {
                 this.set('out', []);
-                this.in.forEach( i => i._childrenCount = 0);
+                this.in.forEach(i => i._childrenCount = 0);
                 let arr = [...this.in];
                 this.sortTreeByParents(arr);
                 this.addTreePart(arr);
@@ -34,14 +34,14 @@ class PlDataTree extends PlElement {
             if (path === 'in' && this.in !== this.out) {
                 this.out.load = this.in.load
             }
-            if(path === 'in.sorts')  return;
+            if (path === 'in.sorts') return;
             //TODO: fix mutation translate for tree
             if (this.bypass) {
                 //TODO: path can be array
                 let translatedPath = path.replace('in', 'out');
                 // translate mutation with resenting watermark,
                 // we need to new mutation cycle for apply nested change
-                mutation = {...mutation, path: translatedPath};
+                mutation = { ...mutation, path: translatedPath };
                 this.notifyChange(mutation);
             } else {
                 this.applyTreeMutation(mutation);
@@ -53,8 +53,8 @@ class PlDataTree extends PlElement {
             let path = normalizePath(mutation.path);
             path[0] = 'in';
             path[1] = this.in.indexOf(this.out[path[1]]);
-            if (path[1] >=0 ) {
-                let m = /**@type DataMutation*/ {...mutation, path};
+            if (path[1] >= 0) {
+                let m = /**@type DataMutation*/ { ...mutation, path };
                 this.notifyChange(m);
             }
         }
@@ -94,7 +94,7 @@ class PlDataTree extends PlElement {
                 delRanges.forEach(rr => this.splice('out', rr.start, rr.end - rr.start + 1));
                 m.deleted.forEach(item => {
                     let parentItem = item._pitem;
-                    if(parentItem) {
+                    if (parentItem) {
                         parentItem._childrenCount = parentItem._childrenCount > 0 ? parentItem._childrenCount - 1 : 0;
                         let it = parentItem;
                         while (it._pitem) {
@@ -117,29 +117,31 @@ class PlDataTree extends PlElement {
             // process open/close for nodes
             let path = normalizePath(m.path);
             let item = this.in[path[1]];
-            if ( path[0] === 'in' && path[2] === '_opened') {
+            if (path[0] === 'in' && path[2] === '_opened') {
                 // call method delayed to let current mutation end
                 // before new splices appear
                 if (m.value) {
-                    setTimeout( ()=>this.showChildren(item),0);
+                    setTimeout(() => this.showChildren(item), 0);
                 } else {
-                    setTimeout( ()=>this.hideChildren(item),0);
+                    setTimeout(() => this.hideChildren(item), 0);
                 }
             }
             // translate mutation from 'in' to 'out'
             path[0] = 'out';
             path[1] = this.out.indexOf(item);
             if (path[1] >= 0) {
-                this.notifyChange({...m, path: path.join('.')});
+                this.notifyChange({ ...m, path: path.join('.') });
             }
         }
     }
 
     addTreePart(m) {
-        let rootFakeItem = {code: null, _level: -1, _opened: true, [this.keyField]: null};
+        let rootFakeItem = { code: null, _level: -1, _opened: true, [this.keyField]: null };
+        let hids = new Set([...this.in.map(x => x[this.pkeyField])]);
+        let keys = new Set([...this.in.map(x => x[this.keyField])]);
         m.forEach(item => {
             // проверяем, возможно для добавленного элемента уже есть дочерние
-            item._haschildren = this.hasChildField && this.in?.control?.partialData ? item[this.hasChildField] ?? true : this.in.some(i => i[this.pkeyField] === item[this.keyField]);
+            item._haschildren = this.hasChildField && this.in?.control?.partialData ? item[this.hasChildField] ?? true : hids.has(item[this.keyField]);
             let pIndex;
             let parentItem;
             // Если вставляемая запись не имеет ссылки на родителя, добавляем к корням
@@ -152,7 +154,7 @@ class PlDataTree extends PlElement {
                 if (pIndex >= 0) {
                     parentItem = this.out[pIndex];
                     if (!parentItem._haschildren) this.set(['out', pIndex, '_haschildren'], true);
-                } else if (!this.in.some(i => i[this.keyField] === item[this.pkeyField])) {
+                } else if (!keys.has(item[this.pkeyField])) {
                     pIndex = -1;
                     parentItem = rootFakeItem;
                 }
@@ -183,6 +185,7 @@ class PlDataTree extends PlElement {
                         it._pitem._childrenCount += 1;
                         it = it._pitem;
                     }
+
                     this.splice('out', insertIndex, 0, item);
                 }
             }
@@ -191,7 +194,13 @@ class PlDataTree extends PlElement {
 
     sortTreeByParents(arr) {
         for (let i = 0; i < arr.length; i++) {
-            let parent = arr.findIndex(f => f[this.keyField] === arr[i][this.pkeyField]);
+            let parent = null;
+            for (let j = 0; j < arr.length; j++) {
+                if(arr[j][this.keyField] == arr[i][this.pkeyField]) {
+                    parent = j;
+                    break;
+                }
+            }
             if (arr[i][this.pkeyField] != null && i < parent) {
                 arr.splice(i, 0, ...arr.splice(parent, 1));
                 i--;
@@ -204,7 +213,7 @@ class PlDataTree extends PlElement {
         const pendingShow = [];
         const outIndex = this.out.indexOf(it);
         if (outIndex < 0) return;
-        const addData = this.in.filter( i => {
+        const addData = this.in.filter(i => {
             if (i[this.pkeyField] === it[this.keyField] && !this.out.includes(i)) {
                 i._level = it._level + 1;
                 if (i._opened) pendingShow.push(i);
@@ -221,9 +230,9 @@ class PlDataTree extends PlElement {
                 it = it._pitem;
             }
             pendingShow.forEach(i => this.showChildren(i));
-        } else if (this.in?.control?.partialData){
+        } else if (this.in?.control?.partialData) {
             // if no rows found with partial load for tree, add lazy load placeholder
-            this.push('in', new PlaceHolder({ [this.pkeyField] :it[this.keyField], hid: it[this.keyField], _haschildren: false}));
+            this.push('in', new PlaceHolder({ [this.pkeyField]: it[this.keyField], hid: it[this.keyField], _haschildren: false }));
         }
     }
 
