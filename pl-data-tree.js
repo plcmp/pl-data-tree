@@ -225,8 +225,9 @@ class PlDataTree extends PlElement {
         if (addData.length > 0) {
             this.splice('out', outIndex + 1, 0, ...addData);
             it._childrenCount = addData.length;
+            const cnt = item._childrenCount;
             while (it._pitem) {
-                it._pitem._childrenCount += item._childrenCount;
+                it._pitem._childrenCount += cnt;
                 it = it._pitem;
             }
             pendingShow.forEach(i => this.showChildren(i));
@@ -240,8 +241,9 @@ class PlDataTree extends PlElement {
         let it = item;
         const outIndex = this.out.indexOf(it);
         this.splice('out', outIndex + 1, it._childrenCount);
+        const cnt = item._childrenCount;
         while (it._pitem) {
-            it._pitem._childrenCount -= it._childrenCount;
+            it._pitem._childrenCount -= cnt;
             it = it._pitem;
         }
         item._childrenCount = null;
