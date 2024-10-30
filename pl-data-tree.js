@@ -144,13 +144,14 @@ class PlDataTree extends PlElement {
             item._haschildren = this.hasChildField && this.in?.control?.partialData ? item[this.hasChildField] ?? true : hids.has(item[this.keyField]);
             let pIndex;
             let parentItem;
-            // Если вставляемая запись не имеет ссылки на родителя, добавляем к корням
-            if (item[this.pkeyField] == null) {
+            
+            // Если вставляемая запись не имеет ссылки на родителя, добавляем к корням и не является Placeholder'ом
+            if (item[this.pkeyField] == null && item.hid == null) {
                 pIndex = -1;
                 parentItem = rootFakeItem;
             } else {
                 // Ищем родителя для вставки
-                pIndex = this.out.findIndex(vi => vi[this.keyField] === item[this.pkeyField]);
+                pIndex = this.out.findIndex(vi => vi[this.keyField] === item[this.pkeyField] || vi[this.keyField] === item.hid);
                 if (pIndex >= 0) {
                     parentItem = this.out[pIndex];
                     if (!parentItem._haschildren) this.set(['out', pIndex, '_haschildren'], true);
