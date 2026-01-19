@@ -1,6 +1,6 @@
-import { PlElement } from "polylib";
-import { normalizePath, stringPath } from "polylib/common";
-import { PlaceHolder } from "@plcmp/utils";
+import { PlElement } from 'polylib';
+import { normalizePath, stringPath } from 'polylib/common';
+import { PlaceHolder } from '@plcmp/utils';
 
 /**
  * @property {Array} in - input array
@@ -14,17 +14,19 @@ class PlDataTree extends PlElement {
         pkeyField: { type: String, observer: '_paramsChange' },
         hasChildField: { type: String, observer: '_paramsChange' },
         bypass: { type: Boolean, value: false, String, observer: '_paramsChange' }
-    }
+    };
+
     _paramsChange() {
         this._inObserver(this.in);
     }
+
     _inObserver(val, _old, mutation) {
-        let path = mutation ? stringPath(mutation.path) : null;
+        const path = mutation ? stringPath(mutation.path) : null;
         if (!mutation || (path === 'in' && mutation.action === 'upd')) {
             if (this.bypass) {
-                this.set('out', val);
+                this.out = val;
             } else if (this.keyField && this.pkeyField) {
-                this.set('out', []);
+                this.out = [];
                 this.in.forEach(i => i._childrenCount = 0);
                 let arr = [...this.in];
                 this.sortTreeByParents(arr);
@@ -32,13 +34,11 @@ class PlDataTree extends PlElement {
             }
         } else {
             if (path === 'in' && this.in !== this.out) {
-                this.out.load = this.in.load
+                this.out.load = this.in.load;
             }
             if (path === 'in.sorts') return;
-            //TODO: fix mutation translate for tree
             if (this.bypass) {
-                //TODO: path can be array
-                let translatedPath = path.replace('in', 'out');
+                const translatedPath = path.replace('in', 'out');
                 // translate mutation with resenting watermark,
                 // we need to new mutation cycle for apply nested change
                 mutation = { ...mutation, path: translatedPath };
@@ -48,17 +48,19 @@ class PlDataTree extends PlElement {
             }
         }
     }
+
     _outObserver(val, old, mutation) {
         if (mutation && stringPath(mutation.path) !== 'out') {
-            let path = normalizePath(mutation.path);
+            const path = normalizePath(mutation.path);
             path[0] = 'in';
             path[1] = this.in.indexOf(this.out[path[1]]);
             if (path[1] >= 0) {
-                let m = /**@type DataMutation*/ { ...mutation, path };
+                const m = /** @type DataMutation */ { ...mutation, path };
                 this.notifyChange(m);
             }
         }
     }
+
     /**
      * Apply in splice mutation to tree in virtual data
      * @param {DataMutation} m
@@ -89,11 +91,11 @@ class PlDataTree extends PlElement {
             if (!this.keyField || !this.pkeyField) return;
             // delete
             if (m.deletedCount > 0) {
-                let di = m.deleted.map(i => this.out.indexOf(i)).filter(i => i >= 0);
-                let delRanges = indexesToRanges(di);
+                const di = m.deleted.map(i => this.out.indexOf(i)).filter(i => i >= 0);
+                const delRanges = indexesToRanges(di);
                 delRanges.forEach(rr => this.splice('out', rr.start, rr.end - rr.start + 1));
-                m.deleted.forEach(item => {
-                    let parentItem = item._pitem;
+                m.deleted.forEach((item) => {
+                    const parentItem = item._pitem;
                     if (parentItem) {
                         parentItem._childrenCount = parentItem._childrenCount > 0 ? parentItem._childrenCount - 1 : 0;
                         let it = parentItem;
@@ -106,7 +108,9 @@ class PlDataTree extends PlElement {
             }
             // add
             // Обновляем индексы
-            this.in.forEach((e, i) => { e._index = i; });
+            this.in.forEach((e, i) => {
+                e._index = i;
+            });
             // Вставляем в нужные места добавленные элементы
             if (m.addedCount > 0) {
                 // Sort added element to ensure root is before leafs
@@ -115,8 +119,8 @@ class PlDataTree extends PlElement {
             }
         } else {
             // process open/close for nodes
-            let path = normalizePath(m.path);
-            let item = this.in[path[1]];
+            const path = normalizePath(m.path);
+            const item = this.in[path[1]];
             if (path[0] === 'in' && path[2] === '_opened') {
                 // call method delayed to let current mutation end
                 // before new splices appear
@@ -136,15 +140,15 @@ class PlDataTree extends PlElement {
     }
 
     addTreePart(m) {
-        let rootFakeItem = { code: null, _level: -1, _opened: true, [this.keyField]: null };
-        let hids = new Set([...this.in.map(x => x[this.pkeyField])]);
-        let keys = new Set([...this.in.map(x => x[this.keyField])]);
-        m.forEach(item => {
+        const rootFakeItem = { code: null, _level: -1, _opened: true, [this.keyField]: null };
+        const hids = new Set([...this.in.map(x => x[this.pkeyField])]);
+        const keys = new Set([...this.in.map(x => x[this.keyField])]);
+        m.forEach((item) => {
             // проверяем, возможно для добавленного элемента уже есть дочерние
             item._haschildren = this.hasChildField && this.in?.control?.partialData ? item[this.hasChildField] ?? true : hids.has(item[this.keyField]);
             let pIndex;
             let parentItem;
-            
+
             // Если вставляемая запись не имеет ссылки на родителя, добавляем к корням и не является Placeholder'ом
             if (item[this.pkeyField] == null && item.hid == null) {
                 pIndex = -1;
@@ -168,9 +172,7 @@ class PlDataTree extends PlElement {
                     // и вставляем элемент в найденную позицию
 
                     item._level = parentItem._level + 1;
-                    // item.__haschildren = this.hasChildField ? item[this.hasChildField] : false;
                     item._pitem = parentItem;
-                    ////if (this.dataMode == 'tree' && item.__haschildren) item.__needLoad = true;
                     let insertIndex = pIndex + 1;
                     while (this.out.length > insertIndex && this.out[insertIndex]._level > parentItem._level) {
                         if (this.out[insertIndex][this.pkeyField] === parentItem[this.keyField] && this.out[insertIndex]._index > item._index) {
@@ -214,7 +216,7 @@ class PlDataTree extends PlElement {
         const pendingShow = [];
         const outIndex = this.out.indexOf(it);
         if (outIndex < 0) return;
-        const addData = this.in.filter(i => {
+        const addData = this.in.filter((i) => {
             if (i[this.pkeyField] === it[this.keyField] && !this.out.includes(i)) {
                 i._level = it._level + 1;
                 if (i._opened) pendingShow.push(i);
