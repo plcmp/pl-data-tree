@@ -28,8 +28,7 @@ class PlDataTree extends PlElement {
             } else if (this.keyField && this.pkeyField) {
                 this.out = [];
                 this.in.forEach(i => i._childrenCount = 0);
-                let arr = [...this.in];
-                this.sortTreeByParents(arr);
+                const arr = this.sortTreeByParents(this.in);
                 this.addTreePart(arr);
             }
         } else {
@@ -114,8 +113,8 @@ class PlDataTree extends PlElement {
             // Вставляем в нужные места добавленные элементы
             if (m.addedCount > 0) {
                 // Sort added element to ensure root is before leafs
-                this.sortTreeByParents(m.added);
-                this.addTreePart(m.added);
+                const sorted = this.sortTreeByParents(m.added);
+                this.addTreePart(sorted);
             }
         } else {
             // process open/close for nodes
@@ -196,19 +195,43 @@ class PlDataTree extends PlElement {
     }
 
     sortTreeByParents(arr) {
-        for (let i = 0; i < arr.length; i++) {
-            let parent = null;
-            for (let j = 0; j < arr.length; j++) {
-                if(arr[j][this.keyField] == arr[i][this.pkeyField]) {
-                    parent = j;
-                    break;
+        const output = [];
+        const existed = new Set([undefined]);
+        const waitIds = new Set();
+        const pending = new Map();
+
+        const checkWaitAndDrain = (id) => {
+            if (pending.has(id)) {
+                pending.get(id).forEach((item) => {
+                    output.push(item);
+                    existed.add(item[this.keyField]);
+                    checkWaitAndDrain(item[this.keyField]);
+                });
+                pending.delete(id);
+            }
+        };
+
+        arr.forEach((item) => {
+            const id = item[this.keyField];
+            const pid = item[this.pkeyField];
+            if (existed.has(pid)) {
+                output.push(item);
+                existed.add(id);
+                checkWaitAndDrain(id);
+            } else {
+                let pidPending = pending.get(pid);
+                if (pidPending) {
+                    pidPending.push(item);
+                } else {
+                    waitIds.add(pid);
+                    pidPending = [item];
+                    pending.set(pid, pidPending);
                 }
+                waitIds.delete(id);
             }
-            if (arr[i][this.pkeyField] != null && i < parent) {
-                arr.splice(i, 0, ...arr.splice(parent, 1));
-                i--;
-            }
-        }
+        });
+        waitIds.forEach(id => checkWaitAndDrain(id));
+        return output;
     }
 
     showChildren(item) {
