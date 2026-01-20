@@ -140,8 +140,8 @@ class PlDataTree extends PlElement {
 
     addTreePart(m) {
         const rootFakeItem = { code: null, _level: -1, _opened: true, [this.keyField]: null };
-        const hids = new Set([...this.in.map(x => x[this.pkeyField])]);
-        const keys = new Set([...this.in.map(x => x[this.keyField])]);
+        const hids = new Set(this.in.map(x => x[this.pkeyField]));
+        const keys = new Map(this.in.map(x => [x[this.keyField], x]));
         m.forEach((item) => {
             // проверяем, возможно для добавленного элемента уже есть дочерние
             item._haschildren = this.hasChildField && this.in?.control?.partialData ? item[this.hasChildField] ?? true : hids.has(item[this.keyField]);
@@ -154,7 +154,9 @@ class PlDataTree extends PlElement {
                 parentItem = rootFakeItem;
             } else {
                 // Ищем родителя для вставки
-                pIndex = this.out.findIndex(vi => vi[this.keyField] === item[this.pkeyField] || vi[this.keyField] === item.hid);
+                // pIndex = this.out.findIndex(vi => vi[this.keyField] === item[this.pkeyField] || vi[this.keyField] === item.hid);
+                pIndex = this.out.indexOf(keys.get(item[this.pkeyField]));
+
                 if (pIndex >= 0) {
                     parentItem = this.out[pIndex];
                     if (!parentItem._haschildren) this.set(['out', pIndex, '_haschildren'], true);
@@ -163,6 +165,7 @@ class PlDataTree extends PlElement {
                     parentItem = rootFakeItem;
                 }
             }
+
             // Если родитель нашелся и он раскрыт, ищем куда в нем вставлять
             if (pIndex >= 0 || parentItem === rootFakeItem) {
                 if (parentItem._opened) {
@@ -172,6 +175,13 @@ class PlDataTree extends PlElement {
 
                     item._level = parentItem._level + 1;
                     item._pitem = parentItem;
+
+                    // Родителя нет, ничего не ищем - добавляем в конец
+                    if (pIndex === -1) {
+                        this.push('out', item);
+                        return;
+                    }
+
                     let insertIndex = pIndex + 1;
                     while (this.out.length > insertIndex && this.out[insertIndex]._level > parentItem._level) {
                         if (this.out[insertIndex][this.pkeyField] === parentItem[this.keyField] && this.out[insertIndex]._index > item._index) {
