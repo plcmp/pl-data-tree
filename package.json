@@ -1,13 +1,13 @@
 {
   "name": "@plcmp/pl-data-tree",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "main": "pl-data-tree.js",
   "author": {
     "name": "Dmitry Boikov",
     "email": "boikovdv@gmail.com"
   },
   "dependencies": {
-    "polylib": "^1.1.4"
+    "polylib": "^1.1.13"
   },
   "description": "Provide tree data proxy for flat visualisation"
 }
