@@ -10,8 +10,8 @@ class PlDataTree extends PlElement {
     static properties = {
         in: { type: Array, observer: '_inObserver' },
         out: { type: Array, observer: '_outObserver' },
-        keyField: { type: String, observer: '_paramsChange' },
-        pkeyField: { type: String, observer: '_paramsChange' },
+        keyField: { type: String, value: 'id', observer: '_paramsChange' },
+        pkeyField: { type: String, valuse: 'hid', observer: '_paramsChange' },
         hasChildField: { type: String, observer: '_paramsChange' },
         bypass: { type: Boolean, value: false, String, observer: '_paramsChange' }
     };
@@ -139,69 +139,103 @@ class PlDataTree extends PlElement {
     }
 
     addTreePart(m) {
-        const rootFakeItem = { code: null, _level: -1, _opened: true, [this.keyField]: null };
-        const hids = new Set(this.in.map(x => x[this.pkeyField]));
-        const keys = new Map(this.in.map(x => [x[this.keyField], x]));
-        m.forEach((item) => {
-            // проверяем, возможно для добавленного элемента уже есть дочерние
-            item._haschildren = this.hasChildField && this.in?.control?.partialData ? item[this.hasChildField] ?? true : hids.has(item[this.keyField]);
-            let pIndex;
-            let parentItem;
+        const key = this.keyField;
+        const pkey = this.pkeyField;
+        const hids = new Set(this.in.map(x => x[pkey]));
+        const keys = new Map(this.in.map(x => [x[key], x]));
+        const batchedKeys = new Set();
+        let batch = [];
+        let lastInsert = null;
 
-            // Если вставляемая запись не имеет ссылки на родителя, добавляем к корням и не является Placeholder'ом
-            if (item[this.pkeyField] == null && item.hid == null) {
-                pIndex = -1;
-                parentItem = rootFakeItem;
-            } else {
-                // Ищем родителя для вставки
-                // pIndex = this.out.findIndex(vi => vi[this.keyField] === item[this.pkeyField] || vi[this.keyField] === item.hid);
-                pIndex = this.out.indexOf(keys.get(item[this.pkeyField]));
-
-                if (pIndex >= 0) {
-                    parentItem = this.out[pIndex];
-                    if (!parentItem._haschildren) this.set(['out', pIndex, '_haschildren'], true);
-                } else if (!keys.has(item[this.pkeyField])) {
-                    pIndex = -1;
-                    parentItem = rootFakeItem;
-                }
+        const drainBatch = () => {
+            if (batch.length > 0) {
+                this.splice('out', (lastInsert ?? this.out.length - 1) + 1, 0, ...batch);
+                batch = [];
+                batchedKeys.clear();
             }
+        };
 
-            // Если родитель нашелся и он раскрыт, ищем куда в нем вставлять
-            if (pIndex >= 0 || parentItem === rootFakeItem) {
-                if (parentItem._opened) {
-                    // Ищем потомка с индексом больше чем у того что нужно вставить,
-                    // либо до конца текущего узла (если добавлять в конец)
-                    // и вставляем элемент в найденную позицию
+        const findInsertionPoint = (array, parentItem, item) => {
+            if (parentItem === null) return array.length;
 
-                    item._level = parentItem._level + 1;
-                    item._pitem = parentItem;
+            const parentItemIndex = array.lastIndexOf(parentItem);
+            if (parentItemIndex === -1 && keys.has(parentItem[key])) return null;
 
-                    // Родителя нет, ничего не ищем - добавляем в конец
-                    if (pIndex === -1) {
+            let insertIndex = parentItemIndex + 1;
+            while (array.length > insertIndex && array[insertIndex]._level > parentItem._level) {
+                if (array[insertIndex][pkey] === parentItem[key] && array[insertIndex]._index > item._index) {
+                    // found a child with a higher index
+                    break;
+                }
+                insertIndex++;
+            }
+            return insertIndex;
+        };
+
+        const addChildCounter = (item) => {
+            item._childrenCount = (item._childrenCount || 0) + 1;
+            while (item._pitem) {
+                item._pitem._childrenCount += 1;
+                item = item._pitem;
+            }
+        };
+
+        m.forEach((item) => {
+            // check if the added item already has children
+            item._haschildren = this.hasChildField && this.in?.control?.partialData ? item[this.hasChildField] ?? true : hids.has(item[key]);
+            let parentItem;
+            // If the item being inserted has no parent reference, add it to the roots and it's not a Placeholder
+            if (item[pkey] === null || item[pkey] === undefined) {
+                parentItem = null;
+                item._level = 0;
+            } else {
+                parentItem = keys.get(item[pkey]) ?? null;
+
+                item._level = (parentItem?._level ?? -1) + 1;
+                item._pitem = parentItem;
+
+                if (parentItem && !parentItem._haschildren) this.set(['out', this.out.indexOf(parentItem), '_haschildren'], true);
+            }
+            if (parentItem && !parentItem._opened) return;
+
+            // check if the parent is in the insertion queue
+            const batched = parentItem && batchedKeys.has(item[pkey]);
+            if (batched) {
+                // parent is in the insertion queue; insert into that queue
+                const insertIndex = findInsertionPoint(batch, parentItem, item);
+                batch.splice(insertIndex, 0, item);
+                batchedKeys.add(item[key]);
+                addChildCounter(parentItem);
+            } else {
+                // parent is not in the queue; search in the output array
+                const insertIndex = findInsertionPoint(this.out, parentItem, item);
+                // if not found, it means the parent is not visible, not in the queue, and we shouldn't insert into it — skip
+                if (insertIndex === null) return;
+
+                if (insertIndex >= 0) {
+                    // if nothing has been inserted yet, assume the previous insertion was just before the current position
+                    lastInsert ??= insertIndex - 1;
+                    if (parentItem) addChildCounter(parentItem);
+                    if (lastInsert === insertIndex - 1) {
+                        batch.push(item);
+                        batchedKeys.add(item[key]);
+                    } else {
+                        drainBatch();
+                        this.splice('out', insertIndex, 0, item);
+                    }
+                } else {
+                    // if no insertion point was found, append to the end
+                    if (lastInsert === this.out.length - 1) {
+                        batch.push(item);
+                        batchedKeys.add(item[key]);
+                    } else {
+                        drainBatch();
                         this.push('out', item);
-                        return;
                     }
-
-                    let insertIndex = pIndex + 1;
-                    while (this.out.length > insertIndex && this.out[insertIndex]._level > parentItem._level) {
-                        if (this.out[insertIndex][this.pkeyField] === parentItem[this.keyField] && this.out[insertIndex]._index > item._index) {
-                            // нашли потомка с большим индексом
-                            break;
-                        }
-                        insertIndex++;
-                    }
-
-                    parentItem._childrenCount = (parentItem._childrenCount || 0) + 1;
-                    let it = parentItem;
-                    while (it._pitem) {
-                        it._pitem._childrenCount += 1;
-                        it = it._pitem;
-                    }
-
-                    this.splice('out', insertIndex, 0, item);
                 }
             }
         });
+        drainBatch();
     }
 
     sortTreeByParents(arr) {
